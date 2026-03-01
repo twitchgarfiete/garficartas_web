@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garficartas - App 3D destacada</title>
+    <style>
+        :root {
+            --primary: #ff6b6b;
+            --secondary: #4ecdc4;
+            --dark: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            background-color: var(--dark);
+            color: var(--text);
+            padding-bottom: 80px;
+            overflow-x: hidden;
+        }
+
+        header {
+            background-color: var(--primary);
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .container { padding: 15px; }
+
+        /* Grid de cartas */
+        .grid-cartas {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+        }
+
+        .carta-box {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 5px;
+            text-align: center;
+            position: relative;
+            border: 1px solid #333;
+            /* Transición suave para todos los cambios */
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: pointer; /* Cambiado de zoom-in a pointer */
+        }
+
+        /* --- EFECTO DE DESTACADO AL PASAR EL RATÓN --- */
+        .carta-box:hover {
+            transform: translateY(-5px) scale(1.05); /* Sube un poco y se agranda */
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4); /* Sombra de color primario */
+            border-color: var(--primary); /* Cambia el borde al color primario */
+            z-index: 5; /* Asegura que esté por encima de otras cartas si se superpone */
+        }
+
+        .carta-box:active { transform: scale(0.95); }
+
+        .carta-box img {
+            width: 100%;
+            border-radius: 5px;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+            display: block;
+            /* Eliminado cursor: zoom-in; aquí también para asegurar */
+        }
+
+        .badge-count-float {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .carta-name {
+            font-size: 0.7rem;
+            margin-top: 5px;
+            color: #ccc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Acordeones */
+        .user-accordion, .drop-accordion {
+            margin-bottom: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .user-button, .drop-button {
+            width: 100%;
+            background: #2a2a2a;
+            color: white;
+            padding: 15px;
+            border: none;
+            text-align: left;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid var(--secondary);
+        }
+
+        .drop-button { border-left-color: var(--primary); }
+
+        .user-content, .drop-content {
+            display: none;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-top: 1px solid #333;
+        }
+
+        .show { display: block; animation: fadeIn 0.3s; }
+
+        /* --- SISTEMA MODAL 3D --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            align-items: center;
+            justify-content: center;
+            perspective: 1200px;
+            touch-action: none;
+        }
+
+        .modal-content {
+            width: 85%;
+            max-width: 320px;
+            position: relative;
+        }
+
+        .card-3d-wrapper {
+            width: 100%;
+            aspect-ratio: 2/3;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+            will-change: transform;
+        }
+
+        .card-3d-wrapper img {
+            width: 100%;
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8), 0 0 20px rgba(255,107,107,0.2);
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Efecto de Brillo/Reflejo */
+        .card-shine {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 15px;
+            background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
+            background-size: 200% 200%;
+            background-position: 50% 50%;
+            pointer-events: none;
+            z-index: 2;
+            mix-blend-mode: overlay;
+            opacity: 0.5;
+        }
+
+        .btn-close-modal {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Navegación */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 65px;
+            background: #181818;
+            display: flex;
+            border-top: 1px solid #333;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            flex: 1;
+            border: none;
+            background: none;
+            color: #888;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+
+        .nav-btn.active { color: var(--primary); }
+        .section { display: none; }
+        .active-section { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2 style="margin:0">&#127183; Garficartas App</h2>
+</header>
+
+<div class="container">
+    <section id="sec-cartas" class="section active-section">
+        <h3 style="color: var(--primary)">&#127183; Catálogo por Drops</h3>
+        <div id="lista-drops"></div>
+    </section>
+
+    <section id="sec-colecciones" class="section">
+        <h3 style="color: var(--secondary)">&#128101; Colecciones de Usuarios</h3>
+        <div id="lista-usuarios"></div>
+    </section>
+
+    <section id="sec-info" class="section">
+        <h3>&#8505; Información</h3>
+        <div style="background: #2a2a2a; padding:15px; border-radius:12px; border-left: 5px solid var(--primary);">
+            <p>Bienvenido a la colección oficial de <b>gaarfiete</b>.</p>
+            <p>&#128250; Twitch: <a href="https://www.twitch.tv/gaarfiete" target="_blank" style="color:var(--primary); text-decoration: none;">gaarfiete</a></p>
+            <p>&#128248; Instagram: <a href="https://www.instagram.com/gaarfiete/" target="_blank" style="color:var(--primary); text-decoration: none;">@gaarfiete</a></p>
+        </div>
+    </section>
+</div>
+
+<div id="card-modal" class="modal" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="btn-close-modal" onclick="closeModal()">X</button>
+        <div class="card-3d-wrapper" id="card-wrapper">
+            <img id="modal-img" src="" alt="Carta">
+            <div class="card-shine" id="card-shine"></div>
+        </div>
+    </div>
+</div>
+
+<nav class="bottom-nav">
+    <button class="nav-btn active" onclick="nav('sec-cartas', this)"><span>&#127183;</span>CARTAS</button>
+    <button class="nav-btn" onclick="nav('sec-colecciones', this)"><span>&#128101;</span>COLECCIONES</button>
+    <button class="nav-btn" onclick="nav('sec-info', this)"><span>&#8505;</span>INFO</button>
+</nav>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBX9Pp_s7rmYjFwIFFz1hs41mKhgf3Q3JQ",
+        authDomain: "garficartas.firebaseapp.com",
+        databaseURL: "https://garficartas-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "garficartas",
+        storageBucket: "garficartas.firebasestorage.app",
+        messagingSenderId: "151850646545",
+        appId: "1:151850646545:web:a802ce7c4a3137014905b0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const baseURL = "https://raw.githubusercontent.com/twitchgarfiete/cartas/refs/heads/main/cartas_twitch/";
+
+    const DROPS = {
+        "Drop 1": [
+            "maya","cr_gameplays","nnalentina","phoenix_peruano","las_escaleras_de_xavi","guinnito","garfialbannil",
+            "villapene","garfiopa","paula_enmascarada","el_mcgretrato","hamstergito","garfiete_tenebroso","viajes_sushi","markitozzz",
+            "garfiuwu","tortilla","andrea_la_tormentas","jorgito_agresivo","garfipino","garfichef","nat_acrobata","markibingo","escaleras_salteadas",
+            "filete","berenjena","la_bala_azul","ivan_mi_capitan","erika","markitos_fumon","natana","garfinoticias","don_jorge_mendoza","perolas",
+            "mono_bailarin","cooking_paula","estafait","muajaja","soyseila","anushka_3","mcreciclage","r_g_m","miriam_tiburona",
+            "markitos_skills","phoenix_garfiete","garfiete_platanero","jorgito_carnicero","garfiete_brujo","valentina","garfito"
+        ],
+        "Edicion limitada": ["las_garficartas","garfiete"]
+    };
+
+    // --- FUNCIONES DE NAVEGACIÓN Y UI ---
+    window.nav = (id, btn) => {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active-section');
+        btn.classList.add('active');
+    };
+
+    window.toggleElement = (id) => {
+        const content = document.getElementById(id);
+        const isOpen = content.classList.contains('show');
+        const selector = id.startsWith('drop-') ? '.drop-content' : '.user-content';
+        document.querySelectorAll(selector).forEach(c => c.classList.remove('show'));
+        if (!isOpen) content.classList.add('show');
+    };
+
+    // --- LÓGICA MODAL 3D ---
+    const modal = document.getElementById('card-modal');
+    const wrapper = document.getElementById('card-wrapper');
+    const shine = document.getElementById('card-shine');
+
+    window.openCard = (src) => {
+        document.getElementById('modal-img').src = src;
+        modal.style.display = 'flex';
+        wrapper.style.transform = `rotateX(0deg) rotateY(0deg)`;
+    };
+
+    window.closeModal = () => {
+        modal.style.display = 'none';
+    };
+
+    const handleMove = (x, y) => {
+        const rect = modal.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        
+        // Rotación máxima de 25 grados
+        const rotateY = ((x - centerX) / centerX) * 25;
+        const rotateX = ((centerY - y) / centerY) * 25;
+
+        wrapper.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        
+        // Mover brillo
+        const moveX = (x / rect.width) * 100;
+        const moveY = (y / rect.height) * 100;
+        shine.style.backgroundPosition = `${moveX}% ${moveY}%`;
+    };
+
+    modal.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+    modal.addEventListener('touchmove', (e) => {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    // --- RENDERIZADO ---
+    const usersRef = ref(db, 'usuarios');
+    onValue(usersRef, (snapshot) => {
+        const usuarios = snapshot.val();
+        if (usuarios) renderizarApp(usuarios);
+    });
+
+    function renderizarApp(usuarios) {
+        const listaUserDiv = document.getElementById('lista-usuarios');
+        const listaDropsDiv = document.getElementById('lista-drops');
+        listaUserDiv.innerHTML = "";
+        listaDropsDiv.innerHTML = "";
+
+        // Drops
+        let dropIndex = 0;
+        for (const nombreDrop in DROPS) {
+            dropIndex++;
+            let dropCartasHTML = "";
+            DROPS[nombreDrop].forEach(nombreCarta => {
+                const imgURL = `${baseURL}${nombreCarta}.png`;
+                dropCartasHTML += `
+                    <div class="carta-box" onclick="openCard('${imgURL}')">
+                        <img src="${imgURL}" onerror="this.src='https://via.placeholder.com/100x150?text=Garfiete'">
+                        <div class="carta-name">${nombreCarta.replace(/_/g, ' ')}</div>
+                    </div>`;
+            });
+
+            listaDropsDiv.innerHTML += `
+                <div class="drop-accordion">
+                    <button class="drop-button" onclick="toggleElement('drop-${dropIndex}')">
+                        <span>&#128230; ${nombreDrop}</span>
+                        <small>${DROPS[nombreDrop].length} cartas</small>
+                    </button>
+                    <div id="drop-${dropIndex}" class="drop-content">
+                        <div class="grid-cartas">${dropCartasHTML}</div>
+                    </div>
+                </div>`;
+        }
+
+        // Usuarios
+        let userCount = 0;
+        const TODAS_LAS_CARTAS = Object.values(DROPS).flat();
+
+        for (const nombreUser in usuarios) {
+            userCount++;
+            const coleccion = usuarios[nombreUser].coleccion || {};
+            let cartasHTML = "";
+            let totalDistintas = 0;
+
+            TODAS_LAS_CARTAS.forEach(nombreCarta => {
+                const cantidad = coleccion[nombreCarta] || 0;
+                if (cantidad > 0) {
+                    totalDistintas++;
+                    const imgURL = `${baseURL}${nombreCarta}.png`;
+                    cartasHTML += `
+                        <div class="carta-box" onclick="openCard('${imgURL}')">
+                            <span class="badge-count-float">x${cantidad}</span>
+                            <img src="${imgURL}" onerror="this.src='https://via.placeholder.com/100x150?text=Error'">
+                            <div class="carta-name">${nombreCarta.replace(/_/g, ' ')}</div>
+                        </div>`;
+                }
+            });
+
+            listaUserDiv.innerHTML += `
+                <div class="user-accordion">
+                    <button class="user-button" onclick="toggleElement('user-${userCount}')">
+                        <span>&#128100; ${nombreUser}</span>
+                        <small style="color: var(--secondary)">${totalDistintas} cartas</small>
+                    </button>
+                    <div id="user-${userCount}" class="user-content">
+                        <div class="grid-cartas">
+                            ${cartasHTML || '<p style="text-align:center; width:100%; color:#666">No tiene cartas todavía</p>'}
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }
+</script>
+
+</body>
+</html>
